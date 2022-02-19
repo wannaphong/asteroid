@@ -1,0 +1,42 @@
+name: build Docker
+
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+on:
+  push
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Run my docker image
+        run: >
+          docker run --rm -it -v /etc/passwd:/etc/passwd:ro -u "$(id -u):$(id -g)" \
+          -v "$HOME/.gitconfig:/$HOME/.gitconfig:ro" -v "$(pwd):/asteroid" ghcr.io/wannaphong/asteroid:latest \
+          bash -c "source ./prepare-build.sh sturgeon && bitbake python3-pkg-resources && bitbake python3-setuptools && bitbake python3-pip && bitbake python3-numpy && bitbake python3-wheel&& bitbake jack&& bitbake portaudio-v19&& bitbake python3-pyaudio"
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ipk
+          path: |
+            ./build/tmp-glibc/deploy/ipk/*/*.ipk
